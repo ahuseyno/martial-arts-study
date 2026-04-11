@@ -1,86 +1,107 @@
-# Roll Notes Prototype
+# Roll Notes
 
-A lightweight BJJ training journal that works as a static web app, an installable iPhone web app, and a GitHub Pages site.
+A BJJ training journal with a public landing page, Supabase auth, and synced class logs across devices.
 
-## What it does
+## What changed
 
-- Saves class logs in `localStorage`
-- Captures techniques, sparring reflections, struggles, and next-class takeaways
-- Shows a small summary of recurring topics and weaknesses
+- Added a landing page with sign in and sign up flows
+- Added a logged-in home page for new class logs, snapshots, and past entries
+- Switched storage from browser-only `localStorage` to Supabase-backed user data
+- Kept a one-click import path for older local-only notes
 
-## Run it locally
+## Architecture
 
-For the full iPhone-style app behavior, serve it locally instead of opening the file directly:
+- GitHub Pages hosts the frontend
+- Supabase handles authentication and the database
+- Each user can only read and write their own entries through row-level security
+
+## Supabase setup
+
+### 1. Create a Supabase project
+
+Create a new project in Supabase and wait for the database to finish provisioning.
+
+### 2. Create the database table and policies
+
+In the Supabase SQL Editor, run the SQL from [supabase-schema.sql](/home/anvar/projects/martial-arts-study/supabase-schema.sql).
+
+### 3. Get your project URL and publishable key
+
+In Supabase, open `Project Settings > API` and copy:
+
+- `Project URL`
+- `Publishable key`
+
+### 4. Add the values to the frontend config
+
+Edit [supabase-config.js](/home/anvar/projects/martial-arts-study/supabase-config.js):
+
+```js
+window.ROLL_NOTES_SUPABASE = {
+  url: "https://YOUR-PROJECT.supabase.co",
+  publishableKey: "YOUR_SUPABASE_PUBLISHABLE_KEY",
+};
+```
+
+These values are safe to expose in a browser app. Do not put your secret or service-role key in the frontend.
+
+### 5. Configure authentication URLs
+
+In Supabase, open `Authentication > URL Configuration` and add:
+
+- Site URL: `https://ahuseyno.github.io`
+- Redirect URL: `https://ahuseyno.github.io`
+
+If you also test locally, add:
+
+- `http://localhost:8000`
+
+### 6. Choose your auth settings
+
+The app supports:
+
+- Email/password sign in
+- Email/password sign up
+- Magic link sign in
+
+If email confirmation is enabled in Supabase, new users may need to confirm their email before signing in.
+
+## Local development
+
+Serve the site over HTTP so the service worker and auth redirects behave correctly:
 
 ```bash
 python3 -m http.server
 ```
 
-Then open `http://localhost:8000` in your browser.
+Then open `http://localhost:8000`.
 
-You can still open [index.html](/home/anvar/projects/martial-arts-study/index.html) directly for quick desktop checks, but service workers and install behavior need HTTP.
+## Deploy to GitHub Pages
 
-## Install on iPhone
+This app is already GitHub Pages friendly because it uses relative paths and runs entirely in the browser.
 
-1. Start the local server with `python3 -m http.server`.
-2. Make your computer and iPhone available on the same network.
-3. Find your computer's local IP address and open `http://YOUR-IP:8000` in Safari on your iPhone.
-4. Tap the Share button in Safari.
-5. Choose `Add to Home Screen`.
-6. Launch `Roll Notes` from your home screen.
-
-The app will open in standalone mode and cache its core files for offline use after the first load.
-
-## Current storage
-
-Entries are still saved in the browser's `localStorage`, so each iPhone or browser profile keeps its own data.
-
-## Publish to GitHub Pages
-
-To publish this at `https://ahuseyno.github.io/`, use a GitHub user site repository named exactly `ahuseyno.github.io`.
-
-### Option 1: New repository named `ahuseyno.github.io`
-
-1. Create a new GitHub repository named `ahuseyno.github.io`.
-2. Copy the contents of this project into that repository root.
-3. Commit and push to the `main` branch.
-4. In GitHub, open `Settings > Pages`.
-5. Set the source to `Deploy from a branch`.
-6. Choose branch `main` and folder `/ (root)`.
-7. Wait for GitHub Pages to publish.
-
-Your site should appear at:
+Push the site to the `main` branch of the `ahuseyno.github.io` repository and GitHub Pages will serve it at:
 
 `https://ahuseyno.github.io/`
 
-### Option 2: Publish from this repository
+After changing frontend files, users may need one hard refresh because [sw.js](/home/anvar/projects/martial-arts-study/sw.js) caches app assets.
 
-If you want to reuse this repo directly, add your GitHub repo as the `origin` remote, push the files, and then enable Pages from the root of `main`.
+## Current data model
 
-Example:
+The app stores these fields per training session:
 
-```bash
-git remote add origin git@github.com:ahuseyno/ahuseyno.github.io.git
-git add .
-git commit -m "Initial Roll Notes site"
-git push -u origin main
-```
+- Class date
+- Class focus
+- Coach or gym
+- Energy rating
+- Techniques covered
+- What clicked
+- Where you got stuck
+- Sparring reflection
+- Main takeaway
 
-If you prefer HTTPS:
+## Notes
 
-```bash
-git remote add origin https://github.com/ahuseyno/ahuseyno.github.io.git
-git add .
-git commit -m "Initial Roll Notes site"
-git push -u origin main
-```
-
-### Notes
-
-- This app is already GitHub Pages friendly because it uses relative asset paths like `./app.js` and `./styles.css`.
-- The journal data will still save in each visitor's browser using `localStorage`.
-- The service worker in [sw.js](/home/anvar/projects/martial-arts-study/sw.js) may cache older files after updates, so after a deploy you may need one hard refresh.
-
-## If you want a true native iOS app next
-
-The next step would be wrapping this in a native shell such as Capacitor and opening it in Xcode for simulator/device builds and App Store distribution. That requires a Mac setup with Xcode, which is not available in this workspace right now.
+- Older entries already in browser `localStorage` can be imported after login with the `Import local notes` button.
+- The app does not currently support editing or deleting entries yet.
+- `supabase-config.js` currently contains placeholders, so the deployed app will show a setup banner until you add your real Supabase values and publish again.
