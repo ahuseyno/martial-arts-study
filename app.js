@@ -1,6 +1,7 @@
 const LOCAL_STORAGE_KEY = "roll-notes-sessions";
 const DEFAULT_ENERGY = "Tired but useful";
 
+const page = document.body.dataset.page;
 const config = window.ROLL_NOTES_SUPABASE || {};
 const isSupabaseConfigured =
   typeof config.url === "string" &&
@@ -8,13 +9,13 @@ const isSupabaseConfigured =
   typeof config.publishableKey === "string" &&
   config.publishableKey.length > 20;
 
-const supabase = isSupabaseConfigured
-  ? window.supabase.createClient(config.url, config.publishableKey)
-  : null;
+const supabaseClient =
+  isSupabaseConfigured && window.supabase?.createClient
+    ? window.supabase.createClient(config.url, config.publishableKey)
+    : null;
 
 const setupBanner = document.getElementById("setup-banner");
-const authView = document.getElementById("auth-view");
-const appView = document.getElementById("app-view");
+
 const authForm = document.getElementById("auth-form");
 const authEmailInput = document.getElementById("auth-email");
 const authPasswordInput = document.getElementById("auth-password");
@@ -22,6 +23,7 @@ const authSubmitButton = document.getElementById("auth-submit");
 const authMessage = document.getElementById("auth-message");
 const magicLinkButton = document.getElementById("magic-link-button");
 const authTabs = Array.from(document.querySelectorAll(".auth-tab"));
+
 const signOutButton = document.getElementById("sign-out-button");
 const importLocalButton = document.getElementById("import-local-button");
 const userEmail = document.getElementById("user-email");
@@ -46,10 +48,14 @@ const sessionTemplate = document.getElementById("session-template");
 
 let authMode = "signin";
 let currentUser = null;
-let sessions = [];
 
-sessionDateInput.value = new Date().toISOString().split("T")[0];
-energyRatingInput.value = DEFAULT_ENERGY;
+if (sessionDateInput) {
+  sessionDateInput.value = new Date().toISOString().split("T")[0];
+}
+
+if (energyRatingInput) {
+  energyRatingInput.value = DEFAULT_ENERGY;
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -59,26 +65,59 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-authTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    authMode = tab.dataset.mode;
-    syncAuthMode();
+if (authTabs.length) {
+  authTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      authMode = tab.dataset.mode;
+      syncAuthMode();
+    });
   });
-});
+}
 
-authForm.addEventListener("submit", handleAuthSubmit);
-magicLinkButton.addEventListener("click", handleMagicLink);
-signOutButton.addEventListener("click", handleSignOut);
-importLocalButton.addEventListener("click", handleLocalImport);
-sessionForm.addEventListener("submit", handleSessionSubmit);
+if (authForm) {
+  authForm.addEventListener("submit", handleAuthSubmit);
+}
+
+if (magicLinkButton) {
+  magicLinkButton.addEventListener("click", handleMagicLink);
+}
+
+if (signOutButton) {
+  signOutButton.addEventListener("click", handleSignOut);
+}
+
+if (importLocalButton) {
+  importLocalButton.addEventListener("click", handleLocalImport);
+}
+
+if (sessionForm) {
+  sessionForm.addEventListener("submit", handleSessionSubmit);
+}
 
 if (!isSupabaseConfigured) {
-  setupBanner.hidden = false;
-  setMessage(
-    authMessage,
-    "Add your Supabase project URL and publishable key in supabase-config.js to enable sign-in.",
-    "error"
-  );
+  if (setupBanner) {
+    setupBanner.hidden = false;
+  }
+
+  if (authMessage) {
+    setMessage(
+      authMessage,
+      "Add your Supabase project URL and publishable key in supabase-config.js to enable sign-in.",
+      "error"
+    );
+  }
+} else if (!supabaseClient) {
+  if (setupBanner) {
+    setupBanner.hidden = false;
+  }
+
+  if (authMessage) {
+    setMessage(
+      authMessage,
+      "Supabase client failed to load. Refresh the page and try again.",
+      "error"
+    );
+  }
 } else {
   initAuth();
 }
@@ -87,41 +126,47 @@ syncAuthMode();
 renderApp([]);
 
 async function initAuth() {
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await supabaseClient.auth.getSession();
 
   if (error) {
-    setMessage(authMessage, error.message, "error");
+    if (authMessage) {
+      setMessage(authMessage, error.message, "error");
+    }
     return;
   }
 
-  await applySession(data.session);
+  await routeForSession(data.session);
 
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    await applySession(session);
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    await routeForSession(session);
   });
 }
 
-async function applySession(session) {
+async function routeForSession(session) {
   currentUser = session?.user ?? null;
-  const isLoggedIn = Boolean(currentUser);
 
-  authView.hidden = isLoggedIn;
-  appView.hidden = !isLoggedIn;
-
-  if (!isLoggedIn) {
-    sessions = [];
-    renderApp([]);
+  if (page === "landing") {
+    if (currentUser) {
+      window.location.replace(getDashboardUrl());
+    }
     return;
   }
 
-  userEmail.textContent = currentUser.email || "Signed in";
-  await loadSessions();
+  if (page === "dashboard") {
+    if (!currentUser) {
+      window.location.replace(getIndexUrl());
+      return;
+    }
+
+    userEmail.textContent = currentUser.email || "Signed in";
+    await loadSessions();
+  }
 }
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
 
-  if (!supabase) {
+  if (!supabaseClient) {
     return;
   }
 
@@ -133,16 +178,21 @@ async function handleAuthSubmit(event) {
 
   try {
     if (authMode === "signup") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: getIndexUrl(),
         },
       });
 
       if (error) {
         throw error;
+      }
+
+      if (data.session) {
+        window.location.replace(getDashboardUrl());
+        return;
       }
 
       setMessage(
@@ -151,7 +201,7 @@ async function handleAuthSubmit(event) {
         "success"
       );
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabaseClient.auth.signInWithPassword({
         email,
         password,
       });
@@ -160,8 +210,7 @@ async function handleAuthSubmit(event) {
         throw error;
       }
 
-      setMessage(authMessage, "Signed in.", "success");
-      authForm.reset();
+      window.location.replace(getDashboardUrl());
     }
   } catch (error) {
     setMessage(authMessage, error.message, "error");
@@ -171,7 +220,7 @@ async function handleAuthSubmit(event) {
 }
 
 async function handleMagicLink() {
-  if (!supabase) {
+  if (!supabaseClient) {
     return;
   }
 
@@ -186,10 +235,10 @@ async function handleMagicLink() {
   clearMessage(authMessage);
 
   try {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: getIndexUrl(),
       },
     });
 
@@ -206,24 +255,24 @@ async function handleMagicLink() {
 }
 
 async function handleSignOut() {
-  if (!supabase) {
+  if (!supabaseClient) {
     return;
   }
 
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut();
 
   if (error) {
     setMessage(sessionMessage, error.message, "error");
     return;
   }
 
-  setMessage(authMessage, "Signed out.", "success");
+  window.location.replace(getIndexUrl());
 }
 
 async function loadSessions() {
   clearMessage(sessionMessage);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("session_logs")
     .select(
       "id, class_date, class_focus, coach_name, energy_rating, techniques, wins, struggles, sparring_notes, takeaway, created_at"
@@ -236,18 +285,18 @@ async function loadSessions() {
     return;
   }
 
-  sessions = data.map(mapSessionFromRow);
-  renderApp(sessions);
+  renderApp(data.map(mapSessionFromRow));
 }
 
 async function handleSessionSubmit(event) {
   event.preventDefault();
 
-  if (!supabase || !currentUser) {
+  if (!supabaseClient || !currentUser) {
     return;
   }
 
-  setLoading(sessionForm.querySelector(".primary-button"), true);
+  const submitButton = sessionForm.querySelector(".primary-button");
+  setLoading(submitButton, true);
   clearMessage(sessionMessage);
 
   const payload = {
@@ -264,7 +313,7 @@ async function handleSessionSubmit(event) {
   };
 
   try {
-    const { error } = await supabase.from("session_logs").insert(payload);
+    const { error } = await supabaseClient.from("session_logs").insert(payload);
 
     if (error) {
       throw error;
@@ -279,12 +328,12 @@ async function handleSessionSubmit(event) {
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {
-    setLoading(sessionForm.querySelector(".primary-button"), false);
+    setLoading(submitButton, false);
   }
 }
 
 async function handleLocalImport() {
-  if (!supabase || !currentUser) {
+  if (!supabaseClient || !currentUser) {
     return;
   }
 
@@ -315,7 +364,7 @@ async function handleLocalImport() {
   }));
 
   try {
-    const { error } = await supabase.from("session_logs").insert(rows);
+    const { error } = await supabaseClient.from("session_logs").insert(rows);
 
     if (error) {
       throw error;
@@ -334,9 +383,13 @@ async function handleLocalImport() {
   }
 }
 
-function renderApp(nextSessions) {
-  renderSummary(nextSessions);
-  renderSessions(nextSessions);
+function renderApp(entries) {
+  if (!totalSessions || !sessionList) {
+    return;
+  }
+
+  renderSummary(entries);
+  renderSessions(entries);
 }
 
 function renderSummary(entries) {
@@ -391,6 +444,10 @@ function renderSessions(entries) {
 }
 
 function syncAuthMode() {
+  if (!authTabs.length || !authSubmitButton || !authPasswordInput) {
+    return;
+  }
+
   authTabs.forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.mode === authMode);
   });
@@ -401,6 +458,10 @@ function syncAuthMode() {
 }
 
 function setLoading(button, isLoading) {
+  if (!button) {
+    return;
+  }
+
   if (!button.dataset.defaultLabel) {
     button.dataset.defaultLabel = button.textContent;
   }
@@ -410,6 +471,10 @@ function setLoading(button, isLoading) {
 }
 
 function setMessage(element, message, tone) {
+  if (!element) {
+    return;
+  }
+
   element.textContent = message;
   element.classList.remove("is-success", "is-error");
 
@@ -497,4 +562,18 @@ function formatDate(value) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T12:00:00`));
+}
+
+function getBasePath() {
+  return window.location.pathname.endsWith("/")
+    ? window.location.pathname
+    : window.location.pathname.replace(/[^/]+$/, "");
+}
+
+function getDashboardUrl() {
+  return new URL(`${getBasePath()}dashboard.html`, window.location.origin).href;
+}
+
+function getIndexUrl() {
+  return new URL(getBasePath(), window.location.origin).href;
 }
