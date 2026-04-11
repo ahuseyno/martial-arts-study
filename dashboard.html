@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roll Notes Dashboard</title>
+    <meta name="theme-color" content="#9b3d2f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Roll Notes" />
+    <meta
+      name="description"
+      content="Track BJJ classes, techniques, sparring reflections, and recurring weaknesses."
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./assets/icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="dashboard">
+    <div class="page-shell">
+      <section id="setup-banner" class="setup-banner" hidden>
+        <p>
+          Supabase is not configured yet. Edit
+          <code>supabase-config.js</code> with your project URL and publishable key.
+        </p>
+      </section>
+
+      <section class="app-view">
+        <header class="app-header">
+          <div>
+            <p class="eyebrow">Roll Notes</p>
+            <h1 class="app-title">Your training journal</h1>
+            <p class="hero-text">
+              Build structure around what you are learning and what still needs
+              work.
+            </p>
+          </div>
+
+          <div class="account-card">
+            <p class="section-kicker">Signed in as</p>
+            <p id="user-email" class="account-email"></p>
+            <div class="account-actions">
+              <button id="import-local-button" class="secondary-button" type="button">
+                Import local notes
+              </button>
+              <button id="sign-out-button" class="ghost-button" type="button">
+                Sign out
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main class="layout">
+          <section class="panel form-panel">
+            <div class="panel-heading">
+              <p class="section-kicker">New Session</p>
+              <h2>Add today’s class notes</h2>
+            </div>
+
+            <form id="session-form" class="session-form">
+              <div class="field-grid">
+                <label class="field">
+                  <span>Date</span>
+                  <input type="date" id="session-date" required />
+                </label>
+
+                <label class="field">
+                  <span>Class focus</span>
+                  <input
+                    type="text"
+                    id="class-focus"
+                    placeholder="Guard retention, back attacks, wrestling up..."
+                    required
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Gym / coach</span>
+                  <input
+                    type="text"
+                    id="coach-name"
+                    placeholder="Optional"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Energy after class</span>
+                  <select id="energy-rating">
+                    <option>Sharp</option>
+                    <option>Solid</option>
+                    <option selected>Tired but useful</option>
+                    <option>Foggy</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Techniques or concepts covered</span>
+                <textarea
+                  id="techniques"
+                  rows="4"
+                  placeholder="One per line. Example: Knee cut to underhook finish"
+                  required
+                ></textarea>
+              </label>
+
+              <div class="field-grid">
+                <label class="field">
+                  <span>What clicked</span>
+                  <textarea
+                    id="wins"
+                    rows="4"
+                    placeholder="Frames felt stronger, timing on hip switch improved..."
+                  ></textarea>
+                </label>
+
+                <label class="field">
+                  <span>Where you got stuck</span>
+                  <textarea
+                    id="struggles"
+                    rows="4"
+                    placeholder="Got flattened in half guard, lost grips during retention..."
+                  ></textarea>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Sparring reflection</span>
+                <textarea
+                  id="sparring-notes"
+                  rows="5"
+                  placeholder="What happened in live rounds? Which positions repeated? What decision would you change?"
+                  required
+                ></textarea>
+              </label>
+
+              <label class="field">
+                <span>Main takeaway for next class</span>
+                <textarea
+                  id="takeaway"
+                  rows="3"
+                  placeholder="Keep elbows connected during knee shield retention before chasing underhooks."
+                  required
+                ></textarea>
+              </label>
+
+              <button type="submit" class="primary-button">Save class log</button>
+            </form>
+
+            <p id="session-message" class="inline-message" aria-live="polite"></p>
+          </section>
+
+          <section class="dashboard-column">
+            <section class="panel summary-panel">
+              <div class="panel-heading">
+                <p class="section-kicker">Training Snapshot</p>
+                <h2>What’s repeating?</h2>
+              </div>
+
+              <div class="summary-grid">
+                <article class="stat-card">
+                  <p class="stat-label">Classes logged</p>
+                  <p class="stat-value" id="total-sessions">0</p>
+                </article>
+
+                <article class="stat-card">
+                  <p class="stat-label">Most studied topic</p>
+                  <p class="stat-value stat-text" id="top-focus">None yet</p>
+                </article>
+
+                <article class="stat-card">
+                  <p class="stat-label">Recurring weakness</p>
+                  <p class="stat-value stat-text" id="top-struggle">
+                    Log a few sessions first
+                  </p>
+                </article>
+              </div>
+
+              <div class="reflection-card">
+                <p class="reflection-label">Next thing to clean up</p>
+                <p id="latest-takeaway" class="reflection-text">
+                  Your latest takeaway will show up here.
+                </p>
+              </div>
+            </section>
+
+            <section class="panel history-panel">
+              <div class="panel-heading">
+                <p class="section-kicker">Journal</p>
+                <h2>Past entries</h2>
+              </div>
+              <div id="empty-state" class="empty-state">
+                No synced sessions yet. Add your first class log to start building
+                your study trail.
+              </div>
+              <div id="session-list" class="session-list"></div>
+            </section>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <template id="session-template">
+      <article class="session-card">
+        <div class="session-card-header">
+          <div>
+            <p class="session-date"></p>
+            <h3 class="session-focus"></h3>
+          </div>
+          <p class="session-energy"></p>
+        </div>
+        <p class="session-meta"></p>
+        <div class="session-block">
+          <h4>Techniques</h4>
+          <ul class="session-techniques"></ul>
+        </div>
+        <div class="session-two-up">
+          <div class="session-block">
+            <h4>What clicked</h4>
+            <p class="session-wins"></p>
+          </div>
+          <div class="session-block">
+            <h4>Where you got stuck</h4>
+            <p class="session-struggles"></p>
+          </div>
+        </div>
+        <div class="session-block">
+          <h4>Sparring reflection</h4>
+          <p class="session-sparring"></p>
+        </div>
+        <div class="session-block takeaway-block">
+          <h4>Main takeaway</h4>
+          <p class="session-takeaway"></p>
+        </div>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

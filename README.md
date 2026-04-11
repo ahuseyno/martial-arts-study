@@ -1,11 +1,11 @@
 # Roll Notes
 
-A BJJ training journal with a public landing page, Supabase auth, and synced class logs across devices.
+A BJJ training journal with a public landing page, a separate authenticated dashboard, Supabase auth, and synced class logs across devices.
 
 ## What changed
 
 - Added a landing page with sign in and sign up flows
-- Added a logged-in home page for new class logs, snapshots, and past entries
+- Added a separate logged-in dashboard page for new class logs, snapshots, and past entries
 - Switched storage from browser-only `localStorage` to Supabase-backed user data
 - Kept a one-click import path for older local-only notes
 
@@ -56,6 +56,8 @@ If you also test locally, add:
 
 - `http://localhost:8000`
 
+The app now sends email-based auth flows back to the landing page first, then redirects authenticated users into `dashboard.html`. That means you do not need a separate dashboard redirect URL unless you choose to add one yourself.
+
 ### 6. Choose your auth settings
 
 The app supports:
@@ -79,6 +81,9 @@ Then open `http://localhost:8000`.
 ## Deploy to GitHub Pages
 
 This app is already GitHub Pages friendly because it uses relative paths and runs entirely in the browser.
+
+- Public entry page: `https://ahuseyno.github.io/`
+- Logged-in dashboard: `https://ahuseyno.github.io/dashboard.html`
 
 Push the site to the `main` branch of the `ahuseyno.github.io` repository and GitHub Pages will serve it at:
 

@@ -1,7 +1,8 @@
-const CACHE_NAME = "roll-notes-v2";
+const CACHE_NAME = "roll-notes-v3";
 const APP_ASSETS = [
   "./",
   "./index.html",
+  "./dashboard.html",
   "./styles.css",
   "./app.js",
   "./supabase-config.js",
