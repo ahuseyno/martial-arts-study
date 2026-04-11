@@ -324,7 +324,7 @@ async function handleSessionSubmit(event) {
     energyRatingInput.value = DEFAULT_ENERGY;
     classFocusInput.focus();
     setMessage(sessionMessage, "Session saved.", "success");
-    await loadSessions();
+    loadSessions();
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {
@@ -375,7 +375,7 @@ async function handleLocalImport() {
       `Imported ${rows.length} local entr${rows.length === 1 ? "y" : "ies"}.`,
       "success"
     );
-    await loadSessions();
+    loadSessions();
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {

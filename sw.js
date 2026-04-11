@@ -1,4 +1,4 @@
-const CACHE_NAME = "roll-notes-v3";
+const CACHE_NAME = "roll-notes-v4";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -39,6 +39,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const requestUrl = new URL(event.request.url);
+
+  if (!["http:", "https:"].includes(requestUrl.protocol)) {
+    return;
+  }
+
+  if (requestUrl.origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -53,7 +63,7 @@ self.addEventListener("fetch", (event) => {
 
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+            cache.put(event.request, responseClone).catch(() => {});
           });
 
           return networkResponse;
