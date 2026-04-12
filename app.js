@@ -45,9 +45,12 @@ const latestTakeaway = document.getElementById("latest-takeaway");
 const emptyState = document.getElementById("empty-state");
 const sessionList = document.getElementById("session-list");
 const sessionTemplate = document.getElementById("session-template");
+const cancelEditButton = document.getElementById("cancel-edit-button");
+const formHeading = document.getElementById("form-heading");
 
 let authMode = "signin";
 let currentUser = null;
+let editingSessionId = null;
 
 if (sessionDateInput) {
   sessionDateInput.value = new Date().toISOString().split("T")[0];
@@ -92,6 +95,10 @@ if (importLocalButton) {
 
 if (sessionForm) {
   sessionForm.addEventListener("submit", handleSessionSubmit);
+}
+
+if (cancelEditButton) {
+  cancelEditButton.addEventListener("click", resetEditState);
 }
 
 if (!isSupabaseConfigured) {
@@ -300,7 +307,6 @@ async function handleSessionSubmit(event) {
   clearMessage(sessionMessage);
 
   const payload = {
-    user_id: currentUser.id,
     class_date: sessionDateInput.value,
     class_focus: classFocusInput.value.trim(),
     coach_name: coachNameInput.value.trim() || null,
@@ -313,17 +319,34 @@ async function handleSessionSubmit(event) {
   };
 
   try {
-    const { error } = await supabaseClient.from("session_logs").insert(payload);
+    if (editingSessionId) {
+      const { error } = await supabaseClient
+        .from("session_logs")
+        .update(payload)
+        .eq("id", editingSessionId);
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+
+      resetEditState();
+      setMessage(sessionMessage, "Session updated.", "success");
+    } else {
+      const { error } = await supabaseClient
+        .from("session_logs")
+        .insert({ user_id: currentUser.id, ...payload });
+
+      if (error) {
+        throw error;
+      }
+
+      sessionForm.reset();
+      sessionDateInput.value = new Date().toISOString().split("T")[0];
+      energyRatingInput.value = DEFAULT_ENERGY;
+      classFocusInput.focus();
+      setMessage(sessionMessage, "Session saved.", "success");
     }
 
-    sessionForm.reset();
-    sessionDateInput.value = new Date().toISOString().split("T")[0];
-    energyRatingInput.value = DEFAULT_ENERGY;
-    classFocusInput.focus();
-    setMessage(sessionMessage, "Session saved.", "success");
     loadSessions();
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
@@ -439,8 +462,72 @@ function renderSessions(entries) {
     node.querySelector(".session-sparring").textContent = session.sparringNotes;
     node.querySelector(".session-takeaway").textContent = session.takeaway;
 
+    node.querySelector(".session-edit-button").addEventListener("click", () => handleEditSession(session));
+    node.querySelector(".session-delete-button").addEventListener("click", () => handleDeleteSession(session.id));
+
     sessionList.appendChild(node);
   });
+}
+
+function handleEditSession(session) {
+  editingSessionId = session.id;
+  sessionDateInput.value = session.date;
+  classFocusInput.value = session.classFocus;
+  coachNameInput.value = session.coachName || "";
+  energyRatingInput.value = session.energyRating;
+  techniquesInput.value = session.techniques.join("\n");
+  winsInput.value = session.wins || "";
+  strugglesInput.value = session.struggles || "";
+  sparringNotesInput.value = session.sparringNotes;
+  takeawayInput.value = session.takeaway;
+
+  if (formHeading) formHeading.textContent = "Edit class notes";
+  const submitButton = sessionForm.querySelector(".primary-button");
+  if (submitButton) {
+    submitButton.textContent = "Update class log";
+    submitButton.dataset.defaultLabel = "Update class log";
+  }
+  if (cancelEditButton) cancelEditButton.hidden = false;
+
+  sessionForm.closest(".form-panel").scrollIntoView({ behavior: "smooth" });
+}
+
+async function handleDeleteSession(id) {
+  if (!confirm("Delete this session? This cannot be undone.")) {
+    return;
+  }
+
+  clearMessage(sessionMessage);
+
+  try {
+    const { error } = await supabaseClient
+      .from("session_logs")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      throw error;
+    }
+
+    setMessage(sessionMessage, "Session deleted.", "success");
+    loadSessions();
+  } catch (error) {
+    setMessage(sessionMessage, error.message, "error");
+  }
+}
+
+function resetEditState() {
+  editingSessionId = null;
+  sessionForm.reset();
+  sessionDateInput.value = new Date().toISOString().split("T")[0];
+  energyRatingInput.value = DEFAULT_ENERGY;
+  if (formHeading) formHeading.textContent = "Add today's class notes";
+  const submitButton = sessionForm.querySelector(".primary-button");
+  if (submitButton) {
+    submitButton.textContent = "Save class log";
+    submitButton.dataset.defaultLabel = "Save class log";
+  }
+  if (cancelEditButton) cancelEditButton.hidden = true;
 }
 
 function syncAuthMode() {

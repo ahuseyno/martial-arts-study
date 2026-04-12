@@ -453,6 +453,45 @@ select:focus {
   background: rgba(155, 61, 47, 0.06);
 }
 
+.form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.session-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.session-edit-button,
+.session-delete-button {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.delete-button {
+  border: 1px solid rgba(155, 61, 47, 0.2);
+  border-radius: 999px;
+  padding: 14px 20px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+  background: transparent;
+  color: var(--accent-dark);
+}
+
+.delete-button:hover,
+.delete-button:focus-visible {
+  transform: translateY(-2px);
+  background: rgba(155, 61, 47, 0.1);
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }

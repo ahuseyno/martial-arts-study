@@ -61,7 +61,7 @@
           <section class="panel form-panel">
             <div class="panel-heading">
               <p class="section-kicker">New Session</p>
-              <h2>Add today’s class notes</h2>
+              <h2 id="form-heading">Add today’s class notes</h2>
             </div>
 
             <form id="session-form" class="session-form">
@@ -151,7 +151,10 @@
                 ></textarea>
               </label>
 
-              <button type="submit" class="primary-button">Save class log</button>
+              <div class="form-actions">
+                <button type="submit" class="primary-button">Save class log</button>
+                <button type="button" id="cancel-edit-button" class="ghost-button" hidden>Cancel</button>
+              </div>
             </form>
 
             <p id="session-message" class="inline-message" aria-live="polite"></p>
@@ -238,6 +241,10 @@
         <div class="session-block takeaway-block">
           <h4>Main takeaway</h4>
           <p class="session-takeaway"></p>
+        </div>
+        <div class="session-actions">
+          <button type="button" class="ghost-button session-edit-button">Edit</button>
+          <button type="button" class="delete-button session-delete-button">Delete</button>
         </div>
       </article>
     </template>
