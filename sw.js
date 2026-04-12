@@ -1,4 +1,4 @@
-const CACHE_NAME = "roll-notes-v4";
+const CACHE_NAME = "roll-notes-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",
