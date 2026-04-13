@@ -1,5 +1,15 @@
 const LOCAL_STORAGE_KEY = "roll-notes-sessions";
 const DEFAULT_ENERGY = "Tired but useful";
+const REQUEST_TIMEOUT_MS = 12000;
+const FIELD_LIMITS = {
+  classFocus: 120,
+  coachName: 120,
+  techniques: 2000,
+  wins: 1500,
+  struggles: 1500,
+  sparringNotes: 4000,
+  takeaway: 1000,
+};
 
 const page = document.body.dataset.page;
 const config = window.ROLL_NOTES_SUPABASE || {};
@@ -279,13 +289,16 @@ async function handleSignOut() {
 async function loadSessions() {
   clearMessage(sessionMessage);
 
-  const { data, error } = await supabaseClient
-    .from("session_logs")
-    .select(
-      "id, class_date, class_focus, coach_name, energy_rating, techniques, wins, struggles, sparring_notes, takeaway, created_at"
-    )
-    .order("class_date", { ascending: false })
-    .order("created_at", { ascending: false });
+  const { data, error } = await withTimeout(
+    supabaseClient
+      .from("session_logs")
+      .select(
+        "id, class_date, class_focus, coach_name, energy_rating, techniques, wins, struggles, sparring_notes, takeaway, created_at"
+      )
+      .order("class_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+    "Loading your journal took too long. Please try again."
+  );
 
   if (error) {
     setMessage(sessionMessage, error.message, "error");
@@ -318,12 +331,22 @@ async function handleSessionSubmit(event) {
     takeaway: takeawayInput.value.trim(),
   };
 
+  const validationError = validateSessionPayload(payload);
+  if (validationError) {
+    setMessage(sessionMessage, validationError, "error");
+    setLoading(submitButton, false);
+    return;
+  }
+
   try {
     if (editingSessionId) {
-      const { error } = await supabaseClient
-        .from("session_logs")
-        .update(payload)
-        .eq("id", editingSessionId);
+      const { error } = await withTimeout(
+        supabaseClient
+          .from("session_logs")
+          .update(payload)
+          .eq("id", editingSessionId),
+        "Updating this session took too long. Please try again."
+      );
 
       if (error) {
         throw error;
@@ -332,9 +355,12 @@ async function handleSessionSubmit(event) {
       resetEditState();
       setMessage(sessionMessage, "Session updated.", "success");
     } else {
-      const { error } = await supabaseClient
-        .from("session_logs")
-        .insert({ user_id: currentUser.id, ...payload });
+      const { error } = await withTimeout(
+        supabaseClient
+          .from("session_logs")
+          .insert({ user_id: currentUser.id, ...payload }),
+        "Saving this session took too long. Please shorten the notes a bit and try again."
+      );
 
       if (error) {
         throw error;
@@ -347,7 +373,7 @@ async function handleSessionSubmit(event) {
       setMessage(sessionMessage, "Session saved.", "success");
     }
 
-    loadSessions();
+    await loadSessions();
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {
@@ -387,7 +413,10 @@ async function handleLocalImport() {
   }));
 
   try {
-    const { error } = await supabaseClient.from("session_logs").insert(rows);
+    const { error } = await withTimeout(
+      supabaseClient.from("session_logs").insert(rows),
+      "Importing local notes took too long. Please try again."
+    );
 
     if (error) {
       throw error;
@@ -398,12 +427,70 @@ async function handleLocalImport() {
       `Imported ${rows.length} local entr${rows.length === 1 ? "y" : "ies"}.`,
       "success"
     );
-    loadSessions();
+    await loadSessions();
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {
     setLoading(importLocalButton, false);
   }
+}
+
+function validateSessionPayload(payload) {
+  const techniquesList = Array.isArray(payload.techniques) ? payload.techniques : [];
+
+  if (!payload.class_focus) {
+    return "Add a class focus before saving.";
+  }
+
+  if (!techniquesList.length) {
+    return "Add at least one technique or concept before saving.";
+  }
+
+  if (!payload.sparring_notes) {
+    return "Add a sparring reflection before saving.";
+  }
+
+  if (!payload.takeaway) {
+    return "Add a main takeaway before saving.";
+  }
+
+  const totalTechniqueLength = techniquesList.join("\n").length;
+  if (totalTechniqueLength > FIELD_LIMITS.techniques) {
+    return `Techniques or concepts covered must stay under ${FIELD_LIMITS.techniques} characters.`;
+  }
+
+  const checks = [
+    ["Class focus", payload.class_focus, FIELD_LIMITS.classFocus],
+    ["Gym / coach", payload.coach_name || "", FIELD_LIMITS.coachName],
+    ["What clicked", payload.wins || "", FIELD_LIMITS.wins],
+    ["Where you got stuck", payload.struggles || "", FIELD_LIMITS.struggles],
+    ["Sparring reflection", payload.sparring_notes, FIELD_LIMITS.sparringNotes],
+    ["Main takeaway", payload.takeaway, FIELD_LIMITS.takeaway],
+  ];
+
+  for (const [label, value, limit] of checks) {
+    if (value.length > limit) {
+      return `${label} must stay under ${limit} characters.`;
+    }
+  }
+
+  return "";
+}
+
+function withTimeout(promise, timeoutMessage) {
+  let timeoutId = null;
+
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, REQUEST_TIMEOUT_MS);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  });
 }
 
 function renderApp(entries) {
