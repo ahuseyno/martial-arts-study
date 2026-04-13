@@ -289,6 +289,7 @@ async function handleSignOut() {
 async function loadSessions() {
   clearMessage(sessionMessage);
 
+  const startedAt = performance.now();
   const { data, error } = await withTimeout(
     supabaseClient
       .from("session_logs")
@@ -306,6 +307,7 @@ async function loadSessions() {
   }
 
   renderApp(data.map(mapSessionFromRow));
+  return performance.now() - startedAt;
 }
 
 async function handleSessionSubmit(event) {
@@ -339,7 +341,12 @@ async function handleSessionSubmit(event) {
   }
 
   try {
-    if (editingSessionId) {
+    const isEditing = Boolean(editingSessionId);
+    const submitStartedAt = performance.now();
+    let writeDuration = 0;
+
+    if (isEditing) {
+      const updateStartedAt = performance.now();
       const { error } = await withTimeout(
         supabaseClient
           .from("session_logs")
@@ -352,9 +359,10 @@ async function handleSessionSubmit(event) {
         throw error;
       }
 
+      writeDuration = performance.now() - updateStartedAt;
       resetEditState();
-      setMessage(sessionMessage, "Session updated.", "success");
     } else {
+      const insertStartedAt = performance.now();
       const { error } = await withTimeout(
         supabaseClient
           .from("session_logs")
@@ -366,14 +374,24 @@ async function handleSessionSubmit(event) {
         throw error;
       }
 
+      writeDuration = performance.now() - insertStartedAt;
       sessionForm.reset();
       sessionDateInput.value = new Date().toISOString().split("T")[0];
       energyRatingInput.value = DEFAULT_ENERGY;
       classFocusInput.focus();
-      setMessage(sessionMessage, "Session saved.", "success");
     }
 
-    await loadSessions();
+    const refreshDuration = (await loadSessions()) || 0;
+    const totalDuration = performance.now() - submitStartedAt;
+    const actionLabel = isEditing ? "updated" : "saved";
+    const timingSummary = formatTimingSummary(totalDuration, writeDuration, refreshDuration);
+
+    setMessage(sessionMessage, `Session ${actionLabel}. ${timingSummary}`, "success");
+    console.info(`[journal] Session ${actionLabel}`, {
+      totalMs: Math.round(totalDuration),
+      writeMs: Math.round(writeDuration),
+      refreshMs: Math.round(refreshDuration),
+    });
   } catch (error) {
     setMessage(sessionMessage, error.message, "error");
   } finally {
@@ -475,6 +493,18 @@ function validateSessionPayload(payload) {
   }
 
   return "";
+}
+
+function formatTimingSummary(totalMs, writeMs, refreshMs) {
+  return `Timing: ${formatMs(totalMs)} total, ${formatMs(writeMs)} write, ${formatMs(refreshMs)} refresh.`;
+}
+
+function formatMs(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0.0s";
+  }
+
+  return `${(value / 1000).toFixed(1)}s`;
 }
 
 function withTimeout(promise, timeoutMessage) {
