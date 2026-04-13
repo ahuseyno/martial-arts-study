@@ -70,14 +70,6 @@ if (energyRatingInput) {
   energyRatingInput.value = DEFAULT_ENERGY;
 }
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((error) => {
-      console.error("Service worker registration failed", error);
-    });
-  });
-}
-
 if (authTabs.length) {
   authTabs.forEach((tab) => {
     tab.addEventListener("click", () => {

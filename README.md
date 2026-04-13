@@ -70,7 +70,7 @@ If email confirmation is enabled in Supabase, new users may need to confirm thei
 
 ## Local development
 
-Serve the site over HTTP so the service worker and auth redirects behave correctly:
+Serve the site over HTTP so auth redirects behave correctly:
 
 ```bash
 python3 -m http.server
@@ -88,8 +88,6 @@ This app is already GitHub Pages friendly because it uses relative paths and run
 Push the site to the `main` branch of the `ahuseyno.github.io` repository and GitHub Pages will serve it at:
 
 `https://ahuseyno.github.io/`
-
-After changing frontend files, users may need one hard refresh because [sw.js](/home/anvar/projects/martial-arts-study/sw.js) caches app assets.
 
 ## Current data model
 
